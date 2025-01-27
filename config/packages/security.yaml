@@ -1,0 +1,56 @@
+security:
+    # Устанавливаем хеширование паролей для пользователей, реализующих PasswordAuthenticatedUserInterface
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+
+    # Регистрация провайдеров пользователей (по email и по id)
+    providers:
+        app_user_provider:
+            entity:
+                class: App\Entity\User
+                property: id
+        app_user_provider_by_email:
+            entity:
+                class: App\Entity\User
+                property: email
+
+    # Конфигурация firewall'ов
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+
+        # Конфигурация для аутентификации по email с использованием JSON
+        login:
+            pattern: ^/api/security/auth
+            stateless: true
+            provider: app_user_provider_by_email
+            json_login:
+                check_path: /api/security/auth
+                username_path: email  # Поле, через которое будет происходить вход
+                password_path: password
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+
+        # Основной API firewall с JWT
+        api:
+            pattern: ^/api/
+            stateless: true
+            provider: app_user_provider
+            jwt: ~
+
+    # Контроль доступа для различных путей
+    access_control:
+        - { path: ^/api/auth, roles: PUBLIC_ACCESS }  # Публичный доступ для аутентификации
+        - { path: ^/api/register, roles: PUBLIC_ACCESS }  # Публичный доступ для регистрации
+        - { path: ^/api, roles: ROLE_USER }  # Все остальные API требуют авторизации
+
+# Конфигурация для тестов (уменьшение затрат на хеширование паролей в тестах)
+when@test:
+    security:
+        password_hashers:
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: auto
+                cost: 4  # Наименьшее значение для bcrypt
+                time_cost: 3  # Наименьшее значение для argon2
+                memory_cost: 10  # Наименьшее значение для argon2
